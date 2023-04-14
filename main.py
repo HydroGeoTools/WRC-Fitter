@@ -60,10 +60,14 @@ def parse_contents(contents, filename):
         if 'csv' in filename:
             # Assume that the user uploaded a CSV file
             df = pd.read_csv(
-                io.StringIO(decoded.decode('utf-8')))
+                io.StringIO(decoded.decode('utf-8')),
+            )
         elif 'xls' in filename:
             # Assume that the user uploaded an excel file
             df = pd.read_excel(io.BytesIO(decoded))
+        #clean data
+        mask_nan = df.isna().sum(axis=1) == 0
+        df = df[mask_nan]
     except Exception as e:
         print(e)
 
@@ -103,6 +107,8 @@ def optimize(btn, contents, filename):
     ydata = np.array(data.iloc[:,1])
     res = fitter.fit(xdata, ydata)
     x_th = np.linspace(np.min(xdata), np.max(xdata), 100)
+    x_th = np.append(x_th, xdata)
+    x_th.sort()
     y_th = fitter.VanGenuchten(x_th, *res.x)
     #plot
     fig = go.Figure(
