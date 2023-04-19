@@ -1,0 +1,18 @@
+# This a example template for nginx configuration.
+# This may not fit exactly your need, adapt youself!
+
+server {
+	listen 80;
+#	listen [::]:80; #ipv6
+#
+	server_name www.moiserousseau.com;
+#
+#	root /var/www/example.com;
+#	index index.html;
+#
+	location / {
+		include uwsgi_params;
+		uwsgi_pass 127.0.0.1:3031;
+		#uwsgi_pass unix:/home/ubuntu/WRC-Fitter/app.sock;
+	}
+}

@@ -1,0 +1,16 @@
+[Unit]
+Description=WRC-Fitter webapp
+After=nginx.target
+
+[Service]
+ExecStart=uwsgi main.ini --plugin python
+ExecStop=uwsgi --stop ./myapp.pid 
+WorkingDirectory=/home/ubuntu/WRC-Fitter
+User=ubuntu
+Group=ubuntu
+Type=simple
+Restart=always
+
+
+[Install]
+WantedBy=default.target
