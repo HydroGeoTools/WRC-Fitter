@@ -6,24 +6,24 @@ from dash import Dash, html, dcc, callback, Output, Input, State
 import plotly.graph_objects as go
 import pandas as pd
 import numpy as np
+import flask
 
 import fitter
 
 
-instruction = """
-1. Prepare a CSV file (comma separated) the first column being the water succion (Psi) and the second the water content (Theta).
-2. Drag and drop or upload this file. The experimental water retention curve should be plotted on the below graph.
-3. Click on the button optimize to search for the best Van Genuchten parameter (best means with the lowest Root Mean Squared Error - RMSE).
-4. Your results appear !
-"""
+instructions = [
+    "1. Prepare a CSV file (comma separated) the first column being the water succion (Psi) and the second the water content (Theta).",
+    "2. Drag and drop or upload this file. The experimental water retention curve should be plotted on the below graph.",
+    "3. Click on the button optimize to search for the best Van Genuchten parameter (best means with the lowest Root Mean Squared Error - RMSE).",
+    "4. Your results appear !",
+]
 
-
-app = Dash(__name__, title="WRC-Fitter")
-
-app.layout = html.Div([
+layout = [
     html.H1('Water Retention Curve Fitter', style={'textAlign':'center'}),
     html.H2('Instructions', style={'textAlign':'center'}),
-    html.P(instruction, style={'textAlign':'center'}),
+] + [
+    html.P(instruction, style={'textAlign':'center'}) for instruction in instructions
+] + [
     dcc.Upload(
         id='upload-data',
         children=html.Div([
@@ -48,10 +48,11 @@ app.layout = html.Div([
     html.Hr(),  # horizontal line
     html.H2('Results', style={'textAlign':'center'}),
     html.Div(id='result-data'),
-])
+]
 
 
 
+#TODO: download the csv and put it on /tmp
 def parse_contents(contents, filename):
     if contents is None: return
     content_type, content_string = contents.split(',')
@@ -74,7 +75,9 @@ def parse_contents(contents, filename):
     return df
 
 
-
+server = flask.Flask(__name__)
+app = Dash(__name__, title="WRC-Fitter", server=server)
+app.layout = html.Div(layout)
 
 @app.callback(
     Output('graph-content', 'figure', allow_duplicate=True),
@@ -121,7 +124,6 @@ def optimize(btn, contents, filename):
         html.P(f"Saturation WC: {res.x[0]:.3f}, Residual WC: {res.x[3]:.3f}, n VG: {res.x[2]:.3e}, alpha VG: {res.x[1]:.3e}", style={'textAlign':'center'}),
     )
     return fig, children
-
 
 if __name__ == '__main__':
     app.run_server(debug=False)
