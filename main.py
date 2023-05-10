@@ -126,4 +126,4 @@ def optimize(btn, contents, filename):
     return fig, children
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
