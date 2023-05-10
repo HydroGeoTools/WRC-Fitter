@@ -5,11 +5,11 @@ import pandas as pd
 def VanGenuchten(psi, tets, a, n, tetr):
     return tetr+((tets-tetr)/(1+(((a*psi)**n)**(1-(1/n)))))
 
-def RMSE(x, CRE_model, xdata, ydata):
+def MSE(x, CRE_model, xdata, ydata):
     y_th = CRE_model(xdata, *x)
     residual = y_th - ydata
-    RMSE = np.sum(np.sqrt(residual**2))
-    return RMSE
+    MSE = np.sum(residual**2)
+    return MSE
 
 def VanGenuchten_initial_parameters(xdata, ydata):
     # min and max water content for tets tetr
@@ -40,6 +40,6 @@ def fit(xdata, ydata):
     tol = 0.3
     x0 = [tets,a,n,tetr]
     bounds=[(tets*(1-tol),min((1+tol)*tets,1)), abounds, (1,50), (tetr*(1-tol),min((1+tol)*tetr,1))]
-    res = scipy.optimize.dual_annealing(RMSE, bounds=bounds, args=[func, xdata, ydata], x0=x0, maxiter=1000)
+    res = scipy.optimize.dual_annealing(MSE, bounds=bounds, args=[func, xdata, ydata], x0=x0, maxiter=1000)
     print(res)
     return res   
