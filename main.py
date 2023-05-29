@@ -14,8 +14,9 @@ import fitter
 instructions = [
     "1. Prepare a CSV file (comma separated) the first column being the water succion (Psi) and the second the water content (Theta).",
     "2. Drag and drop or upload this file. The experimental water retention curve should be plotted on the below graph.",
-    "3. Click on the button optimize to search for the best Van Genuchten parameter (best means with the lowest Root Mean Squared Error - RMSE).",
-    "4. Your results appear !",
+    "3. Select the model to be fitted (default = Van Geunchten)",
+    "4. Click on the button optimize to search for the best model parameters (best means with the lowest Root Mean Squared Error - RMSE).",
+    "5. Your results appear !",
 ]
 
 layout = [
@@ -44,7 +45,11 @@ layout = [
     html.Hr(),  # horizontal line
     dcc.Graph(id='graph-content'),
     html.Hr(),  # horizontal line
-    html.Button('Optimize', id='optimize_button', n_clicks=0),
+    html.Div([
+        html.P("Select model: ", id="model-text"),
+        dcc.Dropdown(["Brooks and Corey", "Fredlung and Xing", "Van Genuchten"], "Van Genuchten", id="dropdown-model-selector"),
+        html.Button('Optimize', id='optimize_button', n_clicks=0),
+    ]),
     html.Hr(),  # horizontal line
     html.H2('Results', style={'textAlign':'center'}),
     html.Div(id='result-data'),
@@ -100,29 +105,44 @@ def update_graph(contents,filename):
     Input('optimize_button', 'n_clicks'),
     State('upload-data', 'contents'),
     State('upload-data', 'filename'),
+    State('dropdown-model-selector', 'value'),
 )
-def optimize(btn, contents, filename):
+def optimize(btn, contents, filename, model):
     if contents is None: return go.Figure(), html.Div()
     print('optimize')
     data = parse_contents(contents, filename)
     header = data.columns.tolist()
     xdata = np.array(data.iloc[:,0])
     ydata = np.array(data.iloc[:,1])
-    res = fitter.fit(xdata, ydata)
+    res = fitter.fit(xdata, ydata, model)
     x_th = np.linspace(np.min(xdata), np.max(xdata), 100)
     x_th = np.append(x_th, xdata)
     x_th.sort()
-    y_th = fitter.VanGenuchten(x_th, *res.x)
+    # print results
+    children = [html.P(f"RMSE (the lowest the better): {np.sqrt(res.fun)}", style={'textAlign':'center'})]
+    if model == "Van Genuchten":
+        children += [html.P(
+            f"Saturation WC: {res.x[0]:.3f}, Residual WC: {res.x[3]:.3f}, n VG: {res.x[2]:.3e}, alpha VG: {res.x[1]:.3e}", style={'textAlign':'center'}
+        )]
+        y_th = fitter.VanGenuchten(x_th, res.x)
+    elif model == "Brooks and Corey":
+        children += [html.P(
+            f"Saturation WC: {res.x[0]:.3f}, Residual WC: {res.x[3]:.3f}, Air Entry Value: {res.x[1]:.3e}, lambda: {res.x[2]:.3e}", style={'textAlign':'center'}
+        )]
+        y_th = fitter.BrooksCorey(x_th, res.x)
+    elif model == "Fredlung and Xing":
+        children += [html.P(
+            f"Saturation WC: {res.x[0]:.3f}, a FX: {res.x[1]:.3f}, n FX: {res.x[2]:.3e}, m FX: {res.x[3]:.3e}", style={'textAlign':'center'}
+        )]
+        y_th = fitter.FredlungXing(x_th, res.x)
     #plot
     fig = go.Figure(
         data=[
             go.Scatter(x=xdata, y=ydata, mode='markers', name="Data"),
-            go.Line(x=x_th, y=y_th, name="Fitted VG"),
+            go.Line(x=x_th, y=y_th, name=f"Fitted {model}"),
         ]
     )
-    children = html.Div(
-        html.P(f"Saturation WC: {res.x[0]:.3f}, Residual WC: {res.x[3]:.3f}, n VG: {res.x[2]:.3e}, alpha VG: {res.x[1]:.3e}", style={'textAlign':'center'}),
-    )
+    print(children)
     return fig, children
 
 if __name__ == '__main__':
