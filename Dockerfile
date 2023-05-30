@@ -17,4 +17,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Launch
 EXPOSE 80
-CMD ["gunicorn", "-b", "0.0.0.0:80", "wsgi:application"]
+CMD ["gunicorn", "wsgi:application"]
