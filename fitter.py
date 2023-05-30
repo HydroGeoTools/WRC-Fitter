@@ -45,13 +45,12 @@ def BrooksCorey_initial_parameters(xdata, ydata):
     return tets, psi_d, l, tetr
 
 
-def FredlungXing(psi, params):
+def FredlundXing(psi, params):
     # https://doi.org/10.1139/t94-061
-    print(params)
     tets, a, n, m = params
     return tets * (np.log(np.e + (psi/a)**n))**(-m)
 
-def FredlungXing_initial_parameters(xdata, ydata):
+def FredlundXing_initial_parameters(xdata, ydata):
     tets = np.max(ydata)
     tetr = np.min(ydata)
     # differentiate to find the inflexion point
@@ -107,9 +106,9 @@ def fit(xdata, ydata, model="Van Genuchten"):
             (-10,0),
             (tetr*(1-tol),min((1+tol)*tetr,1)), #tetr
         ]
-    elif model == "Fredlung and Xing":
-        func = FredlungXing
-        tets, a, n, m = FredlungXing_initial_parameters(xdata, ydata)
+    elif model == "Fredlund and Xing":
+        func = FredlundXing
+        tets, a, n, m = FredlundXing_initial_parameters(xdata, ydata)
         x0 = [tets, a, n, m]
         bounds = [
             (tets*(1-tol),min((1+tol)*tets,1)),

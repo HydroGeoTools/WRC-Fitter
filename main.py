@@ -47,7 +47,7 @@ layout = [
     html.Hr(),  # horizontal line
     html.Div([
         html.P("Select model: ", id="model-text"),
-        dcc.Dropdown(["Brooks and Corey", "Fredlung and Xing", "Van Genuchten"], "Van Genuchten", id="dropdown-model-selector"),
+        dcc.Dropdown(["Brooks and Corey", "Fredlund and Xing", "Van Genuchten"], "Van Genuchten", id="dropdown-model-selector"),
         html.Button('Optimize', id='optimize_button', n_clicks=0),
     ]),
     html.Hr(),  # horizontal line
@@ -119,7 +119,7 @@ def optimize(btn, contents, filename, model):
     x_th = np.append(x_th, xdata)
     x_th.sort()
     # print results
-    children = [html.P(f"RMSE (the lowest the better): {np.sqrt(res.fun)}", style={'textAlign':'center'})]
+    children = [html.P(f"RMSE (the lower the better): {np.sqrt(res.fun)}", style={'textAlign':'center'})]
     if model == "Van Genuchten":
         children += [html.P(
             f"Saturation WC: {res.x[0]:.3f}, Residual WC: {res.x[3]:.3f}, n VG: {res.x[2]:.3e}, alpha VG: {res.x[1]:.3e}", style={'textAlign':'center'}
@@ -130,11 +130,11 @@ def optimize(btn, contents, filename, model):
             f"Saturation WC: {res.x[0]:.3f}, Residual WC: {res.x[3]:.3f}, Air Entry Value: {res.x[1]:.3e}, lambda: {res.x[2]:.3e}", style={'textAlign':'center'}
         )]
         y_th = fitter.BrooksCorey(x_th, res.x)
-    elif model == "Fredlung and Xing":
+    elif model == "Fredlund and Xing":
         children += [html.P(
             f"Saturation WC: {res.x[0]:.3f}, a FX: {res.x[1]:.3f}, n FX: {res.x[2]:.3e}, m FX: {res.x[3]:.3e}", style={'textAlign':'center'}
         )]
-        y_th = fitter.FredlungXing(x_th, res.x)
+        y_th = fitter.FredlundXing(x_th, res.x)
     #plot
     fig = go.Figure(
         data=[
@@ -142,7 +142,6 @@ def optimize(btn, contents, filename, model):
             go.Line(x=x_th, y=y_th, name=f"Fitted {model}"),
         ]
     )
-    print(children)
     return fig, children
 
 if __name__ == '__main__':
