@@ -77,8 +77,16 @@ def FredlundXing_initial_parameters(xdata, ydata):
 def MSE(x, CRE_model, xdata, ydata):
     y_th = CRE_model(xdata, x)
     residual = y_th - ydata
-    MSE = np.sum(residual**2)
+    MSE = 1 / len(xdata) * np.sum(residual**2)
     return MSE
+
+def R2(x, CRE_model, xdata, ydata):
+    y_th = CRE_model(xdata, x)
+    SSres = (y_th - ydata)**2
+    y_mean = np.mean(ydata)
+    SStot = (y_mean - ydata)**2
+    R2 = np.sum(SSres**2) / np.sum(SStot**2)-1 #-R2 because we want to maximize
+    return R2
 
 
 ###
@@ -118,4 +126,4 @@ def fit(xdata, ydata, model="Van Genuchten"):
         ]
     res = scipy.optimize.dual_annealing(MSE, bounds=bounds, args=[func, xdata, ydata], x0=x0, maxiter=1000)
     print(res)
-    return res   
+    return res, func 

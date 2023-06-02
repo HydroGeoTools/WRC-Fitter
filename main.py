@@ -114,12 +114,16 @@ def optimize(btn, contents, filename, model):
     header = data.columns.tolist()
     xdata = np.array(data.iloc[:,0])
     ydata = np.array(data.iloc[:,1])
-    res = fitter.fit(xdata, ydata, model)
+    res, func = fitter.fit(xdata, ydata, model)
     x_th = np.linspace(np.min(xdata), np.max(xdata), 100)
     x_th = np.append(x_th, xdata)
     x_th.sort()
+    R2 = -fitter.R2(res.x, func, xdata, ydata)
     # print results
-    children = [html.P(f"RMSE (the lower the better): {np.sqrt(res.fun)}", style={'textAlign':'center'})]
+    children = [
+        html.P(f"RMSE (the lower the better): {np.sqrt(res.fun)}", style={'textAlign':'center'}),
+        html.P(f"Determination coefficient (R2): {R2}", style={'textAlign':'center'})
+    ]
     if model == "Van Genuchten":
         children += [html.P(
             f"Saturation WC: {res.x[0]:.3f}, Residual WC: {res.x[3]:.3f}, n VG: {res.x[2]:.3e}, alpha VG: {res.x[1]:.3e}", style={'textAlign':'center'}
