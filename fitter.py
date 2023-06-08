@@ -6,9 +6,14 @@ from scipy.interpolate import CubicSpline
 # Model to fit
 ###
 
-def VanGenuchten(psi, params):
+model_output_name = {
+    "Van Genuchten": ["Saturation WC", "alpha VG", "n VG", "Residual WC"],
+    "Brooks and Corey": ["Saturation WC", "Air Entry Value", "Lambda BC", "Residual WC"],
+    "Fredlund and Xing": ["Saturation WC", "alpha FX", "n FX", "m FX"],
+}
+  
+def VanGenuchten(psi, tets, a, n, tetr):
     # https://doi.org/10.2136/sssaj1980.03615995004400050002x
-    tets, a, n, tetr = params
     return tetr+((tets-tetr)/(1+(((a*psi)**n)**(1-(1/n)))))
 
 def VanGenuchten_initial_parameters(xdata, ydata):
@@ -29,10 +34,9 @@ def VanGenuchten_initial_parameters(xdata, ydata):
     return tets, a, n, tetr, [amin/2, amax]
     
 
-def BrooksCorey(psi, params):
+def BrooksCorey(psi, tets, psi_d, l, tetr):
     # from https://www.pc-progress.com/Documents/programs/retc.pdf
     # and https://www.nature.com/articles/s41598-019-54449-8
-    tets, psi_d, l, tetr = params
     cond = np.where(psi < psi_d, 1, (psi/psi_d)**l)
     return tetr + (tets - tetr) * cond 
 
@@ -40,32 +44,30 @@ def BrooksCorey_initial_parameters(xdata, ydata):
     tets = np.max(ydata)
     tetr = np.min(ydata)
     index = np.argmin(ydata < 0.8 * tets)
-    psi_d = xdata[index]
-    l = 2
+    psi_d = max(xdata[index],1e-6)
+    l = -2
     return tets, psi_d, l, tetr
 
 
-def FredlundXing(psi, params):
+def FredlundXing(psi, tets, a, n, m):
     # https://doi.org/10.1139/t94-061
-    tets, a, n, m = params
     return tets * (np.log(np.e + (psi/a)**n))**(-m)
 
 def FredlundXing_initial_parameters(xdata, ydata):
     tets = np.max(ydata)
     tetr = np.min(ydata)
-    # differentiate to find the inflexion point
-    #interpol = CubicSpline(np.sort(xdata),ydata)
-    #grad1 = interpol.derivative(1)
-    #grad2 = interpol.derivative(2)
-    index = np.argmin(np.abs(ydata-(tets-tetr) * 0.7 + tetr))
-    x0 = xdata[index]
-    #psi_i = scipy.optimize.root_scalar(grad2, x0=x0)
+    # we found the inflexion point using a simplified procedure with sat=0.7
+    index = np.argmin(np.abs(ydata-(tets-tetr) * 0.7 - tetr))
+    psi_i = xdata[index]
     teti = ydata[index]
-    psi_i = x0
+    # slope is calculated with sat=0.3 and sat=0.7
+    index = np.argmin(np.abs(ydata-(tets-tetr) * 0.3 - tetr))
+    psi_p = xdata[index]
+    s = teti / (psi_p - psi_i)
     # from equation 32 to 35
     a = psi_i
     m = 3.67 * np.log(tets/teti)
-    n = 1.31**(m+1) / (m * tets) * 3.72 * (-1) * psi_i
+    n = 1.31**(m+1) / (m * tets) * 3.72 * psi_i * s
     return tets, a, n, m
 
 
@@ -80,21 +82,20 @@ def MSE(x, CRE_model, xdata, ydata):
     MSE = 1 / len(xdata) * np.sum(residual**2)
     return MSE
 
-def R2(x, CRE_model, xdata, ydata):
-    y_th = CRE_model(xdata, x)
-    SSres = (y_th - ydata)**2
-    y_mean = np.mean(ydata)
-    SStot = (y_mean - ydata)**2
-    R2 = np.sum(SSres**2) / np.sum(SStot**2)-1 #-R2 because we want to maximize
-    return R2
+def quantile_loss(x, model, xdata, ydata, quantile):
+    y_th = model(xdata, x)
+    residual = y_th - ydata
+    L = np.where(residual < 0, - quantile * residual, - (quantile-1)* residual)
+    return 1/len(xdata) * np.sum(L)
 
 
 ###
 # Main fit function
 ###
-def fit(xdata, ydata, model="Van Genuchten"):
+def fit(xdata, ydata, model="Van Genuchten", quantile=None):
     tol = 0.3
     if model == "Van Genuchten":
+        func_l = lambda x,params: VanGenuchten(x, *params)
         func = VanGenuchten
         tets, a, n, tetr, abounds = VanGenuchten_initial_parameters(xdata, ydata)
         x0 = [tets,a,n,tetr]
@@ -105,16 +106,19 @@ def fit(xdata, ydata, model="Van Genuchten"):
             (tetr*(1-tol),min((1+tol)*tetr,1))
         ]
     elif model == "Brooks and Corey":
+        func_l = lambda x,params: BrooksCorey(x, *params)
         func = BrooksCorey
         tets, psi_d, l, tetr = BrooksCorey_initial_parameters(xdata, ydata)
         x0 = [tets, psi_d, l, tetr]
         bounds = [
             (tets*(1-tol),min((1+tol)*tets,1)), #tets
-            (np.min(xdata), np.max(xdata)),
+            (max(np.min(xdata),1e-6), np.max(xdata)),
             (-10,0),
             (tetr*(1-tol),min((1+tol)*tetr,1)), #tetr
         ]
+        print(bounds, x0)
     elif model == "Fredlund and Xing":
+        func_l = lambda x,params: FredlundXing(x, *params)
         func = FredlundXing
         tets, a, n, m = FredlundXing_initial_parameters(xdata, ydata)
         x0 = [tets, a, n, m]
@@ -124,6 +128,20 @@ def fit(xdata, ydata, model="Van Genuchten"):
             (0,30),
             (0,30),
         ]
-    res = scipy.optimize.dual_annealing(MSE, bounds=bounds, args=[func, xdata, ydata], x0=x0, maxiter=1000)
-    print(res)
-    return res, func 
+    
+    if quantile is not None:
+        #Make a quantile regression
+        res = scipy.optimize.differential_evolution(
+            quantile_loss,
+            bounds=bounds,
+            args=[func_l, xdata, ydata, quantile],
+            x0=x0,
+            maxiter=1000,
+            popsize=24
+        )
+    else:
+        #Make a best fit calibration
+        res = scipy.optimize.dual_annealing(MSE, bounds=bounds, args=[func_l, xdata, ydata], x0=x0, maxiter=1000)
+    return res, func_l
+
+

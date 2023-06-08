@@ -115,35 +115,43 @@ def optimize(btn, contents, filename, model):
     xdata = np.array(data.iloc[:,0])
     ydata = np.array(data.iloc[:,1])
     res, func = fitter.fit(xdata, ydata, model)
+    res95, func = fitter.fit(xdata, ydata, model, 0.95)
+    res05, func = fitter.fit(xdata, ydata, model, 0.05)
     x_th = np.linspace(np.min(xdata), np.max(xdata), 100)
     x_th = np.append(x_th, xdata)
     x_th.sort()
-    R2 = -fitter.R2(res.x, func, xdata, ydata)
+    RMSE = np.sqrt(res.fun)
     # print results
     children = [
-        html.P(f"RMSE (the lower the better): {np.sqrt(res.fun)}", style={'textAlign':'center'}),
-        html.P(f"Determination coefficient (R2): {R2}", style={'textAlign':'center'})
+        html.P(f"RMSE (the lower the better): {RMSE:.3e}", style={'textAlign':'center'}),
+        html.P(f"95th quantile loss (the lower the better): {res95.fun:.3e}", style={'textAlign':'center'}),
+        html.P(f"5th quantile loss (the lower the better): {res05.fun:.3e}", style={'textAlign':'center'}),
     ]
-    if model == "Van Genuchten":
-        children += [html.P(
-            f"Saturation WC: {res.x[0]:.3f}, Residual WC: {res.x[3]:.3f}, n VG: {res.x[2]:.3e}, alpha VG: {res.x[1]:.3e}", style={'textAlign':'center'}
-        )]
-        y_th = fitter.VanGenuchten(x_th, res.x)
-    elif model == "Brooks and Corey":
-        children += [html.P(
-            f"Saturation WC: {res.x[0]:.3f}, Residual WC: {res.x[3]:.3f}, Air Entry Value: {res.x[1]:.3e}, lambda: {res.x[2]:.3e}", style={'textAlign':'center'}
-        )]
-        y_th = fitter.BrooksCorey(x_th, res.x)
-    elif model == "Fredlund and Xing":
-        children += [html.P(
-            f"Saturation WC: {res.x[0]:.3f}, a FX: {res.x[1]:.3f}, n FX: {res.x[2]:.3e}, m FX: {res.x[3]:.3e}", style={'textAlign':'center'}
-        )]
-        y_th = fitter.FredlundXing(x_th, res.x)
+    out_param_str = ""
+    for i,name in enumerate(fitter.model_output_name[model]):
+        out_param_str += f"{name}: {res.x[i]:.3e} ({res05.x[i]:.3e},{res95.x[i]:.3e}) ; "
+    children += [html.P(out_param_str, style={'textAlign':'center'})]
+    
     #plot
+    y_opt = func(x_th, res.x)
+    y_95 = func(x_th, res95.x)
+    y_05 = func(x_th, res05.x)
+    #size_stat = 100
+    #random_gen = np.random.default_rng()
+    #params_random = np.transpose([
+    #    random_gen.normal(res.x[i],perr[i],size=size_stat) for i in range(len(res.x))
+    #])
+    #y_stats = [
+    #    func(x_th, params) for params in params_random
+    #]
     fig = go.Figure(
         data=[
-            go.Scatter(x=xdata, y=ydata, mode='markers', name="Data"),
-            go.Line(x=x_th, y=y_th, name=f"Fitted {model}"),
+            go.Scatter(x=x_th, y=y_05, line={"dash":"solid", "color":"silver"}, marker=None, name="5th quantile"),
+            go.Scatter(x=x_th, y=y_95, line={"dash":"solid", "color":"gold"}, marker=None, name="95th quantile"),
+        ] + [
+            go.Scatter(x=x_th, y=y_opt, line={"dash":"solid", "color":"red"}, marker=None, name=f"Fitted {model}"),
+        ] + [
+            go.Scatter(x=xdata, y=ydata, mode='markers', marker={"color":"blue"}, name="Data"),
         ]
     )
     return fig, children
