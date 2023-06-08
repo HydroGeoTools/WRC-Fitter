@@ -48,6 +48,6 @@ git push dokku master:master --verbose
 
 ## TODO
 
-* Let user adjust manually the final result
-* Allow other WRC models
 * Check the point density, i.e. an isolated point is as important as many clustered points
+* Present result as a table (dash DataTable)
+* Download the curves in excel format with formula

@@ -12,10 +12,10 @@ import fitter
 
 
 instructions = [
-    "1. Prepare a CSV file (comma separated) the first column being the water succion (Psi) and the second the water content (Theta).",
+    "1. Prepare a CSV / Excel file with the first column being the water succion and the second the water content. You can download a sample experimental curve below.",
     "2. Drag and drop or upload this file. The experimental water retention curve should be plotted on the below graph.",
-    "3. Select the model to be fitted (default = Van Geunchten)",
-    "4. Click on the button optimize to search for the best model parameters (best means with the lowest Root Mean Squared Error - RMSE).",
+    "3. Select the model to be fitted (default = Van Genuchten)",
+    "4. Click on the button optimize to search for the best model parameters (best means with the lowest Root Mean Squared Error - RMSE) and associated uncertainty with a 5th and 95th quantile regression.",
     "5. Your results appear !",
 ]
 
@@ -25,6 +25,8 @@ layout = [
 ] + [
     html.P(instruction, style={'textAlign':'center'}) for instruction in instructions
 ] + [
+    html.Button('Download sample', id='download-sample-button', n_clicks=0),
+    dcc.Download(id="download-sample"),
     dcc.Upload(
         id='upload-data',
         children=html.Div([
@@ -52,7 +54,11 @@ layout = [
     ]),
     html.Hr(),  # horizontal line
     html.H2('Results', style={'textAlign':'center'}),
-    html.Div(id='result-data'),
+    html.Div([
+        html.P("Please optimize to view the fitted parameters.", style={'textAlign':'center'}),
+    ], id='result-data'),
+#    html.Button("Download Results", id="btn-download-res", hidden=True),
+#    dcc.Download(id="download-dataframe-res"),
 ]
 
 
@@ -67,6 +73,8 @@ def parse_contents(contents, filename):
             # Assume that the user uploaded a CSV file
             df = pd.read_csv(
                 io.StringIO(decoded.decode('utf-8')),
+                sep=None,
+                engine="python",
             )
         elif 'xls' in filename:
             # Assume that the user uploaded an excel file
@@ -85,6 +93,16 @@ app = Dash(__name__, title="WRC-Fitter", server=server)
 app.layout = html.Div(layout)
 
 @app.callback(
+    Output("download-sample", "data"),
+    Input("download-sample-button", "n_clicks"),
+    prevent_initial_call=True,
+)
+def download_sample(n_clicks):
+    return dcc.send_file(
+        "./examples/wrc-indian-head-till.xlsx"
+    )
+
+@app.callback(
     Output('graph-content', 'figure', allow_duplicate=True),
     Input('upload-data', 'contents'),
     State('upload-data', 'filename'),
@@ -96,6 +114,8 @@ def update_graph(contents,filename):
     xdata = np.array(data.iloc[:,0])
     ydata = np.array(data.iloc[:,1])
     fig = go.Figure(data=go.Scatter(x=xdata, y=ydata, mode='markers'))
+    fig.update_xaxes(type="log")
+    fig.update_layout(xaxis_title=header[0], yaxis_title=header[1])
     return fig
 
 
@@ -106,6 +126,8 @@ def update_graph(contents,filename):
     State('upload-data', 'contents'),
     State('upload-data', 'filename'),
     State('dropdown-model-selector', 'value'),
+    #State('btn-download-res', 'hidden'),
+    prevent_initial_call=True,
 )
 def optimize(btn, contents, filename, model):
     if contents is None: return go.Figure(), html.Div()
@@ -154,7 +176,18 @@ def optimize(btn, contents, filename, model):
             go.Scatter(x=xdata, y=ydata, mode='markers', marker={"color":"blue"}, name="Data"),
         ]
     )
+    fig.update_xaxes(type="log")
+    fig.update_layout(xaxis_title=header[0], yaxis_title=header[1])
     return fig, children
+
+
+#@app.callback(
+#    Output("download-dataframe-res", "data"),
+#    Input("btn-res", "n_clicks"),
+#    prevent_initial_call=True,
+#)
+#def func(n_clicks):
+#    return dcc.send_file("mydf.csv")
 
 if __name__ == '__main__':
     app.run_server(debug=True)
