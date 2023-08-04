@@ -13,9 +13,20 @@ from main_ui import WRCFitterUI
 
 
 
-app = Dash(__name__, title="WRC-Fitter", external_stylesheets=[dbc.themes.MINTY])
+app = Dash(__name__, title="WRC-Fitter", external_stylesheets=[dbc.themes.BOOTSTRAP])
 main_ui = WRCFitterUI()
 app.layout = main_ui.packLayout()
+
+
+#Some global variables
+ABBREV_MODEL = {
+    "Brooks and Corey (1964)": "BC",
+    "Fredlund and Xing (1994)": "FX",
+    "Van Genuchten (1980)": "VG",
+}
+ABBREV_TO_MODEL = {
+    val:key for key,val in ABBREV_MODEL.items()
+}
 
 
 def parse_contents(contents, filename):
@@ -80,7 +91,11 @@ def optimize(btn, contents, filename, fit_type, model):
     xdata = np.array(data.iloc[:,0])
     ydata = np.array(data.iloc[:,1])
     #prepare output
-    x_th = np.linspace(np.min(xdata), np.max(xdata), 100)
+    if np.min(xdata) == 0:
+        min_x_th_log = np.log10(np.min(xdata[xdata != 0]))-1
+    else:
+        min_x_th_log = np.log10(np.min(xdata))
+    x_th = np.logspace(min_x_th_log, np.log10(np.max(xdata)), 200)
     x_th = np.append(x_th, xdata)
     x_th.sort()
     
@@ -129,17 +144,37 @@ def optimize(btn, contents, filename, fit_type, model):
     
     # print text results
     if fit_type == "Best fit with RMSE (deterministic)":
-        table_header = html.Thead(html.Tr([html.Th("Parameters"), html.Th("Best fit")]))
-        table_body = html.Tbody(
-            [ html.Tr([html.Td(name), html.Td(f"{res.x[i]:.6e}")]) for i,name in enumerate(fitter.model_output_name[model]) ]
+        table_header = html.Thead(
+            html.Tr([
+                html.Th(ABBREV_MODEL[model] + " Parameters"),
+                html.Th("Best fit (RMSE)")
+            ])
         )
-        children = dbc.Table([table_header, table_body], bordered=True)
+        table_body = html.Tbody([
+            html.Tr(
+                [html.Td(name), html.Td(f"{res.x[i]:.6e}")]) for i,name in enumerate(fitter.model_output_name[model]
+            )
+        ])
+    
     elif fit_type == "Quantile regression (statistical)":
-        table_header = html.Thead(html.Tr([html.Th("Parameters"), html.Th("5th"), html.Th("50th"), html.Th("95th")]))
-        table_body = html.Tbody(
-            [ html.Tr([html.Td(name), html.Td(f"{resmin.x[i]:.6e}"), html.Td(f"{res50.x[i]:.6e}"), html.Td(f"{resmax.x[i]:.6e}")]) for i,name in enumerate(fitter.model_output_name[model]) ]
+        table_header = html.Thead(
+            html.Tr([
+                html.Th(ABBREV_MODEL[model] + " Parameters"),
+                html.Th("5th Quantile"),
+                html.Th("50th Quantile"),
+                html.Th("95th Quantile")
+            ])
         )
-        children = dbc.Table([table_header, table_body], bordered=True)
+        table_body = html.Tbody([
+            html.Tr(
+                [html.Td(name), html.Td(f"{resmin.x[i]:.6e}"), html.Td(f"{res50.x[i]:.6e}"), html.Td(f"{resmax.x[i]:.6e}")]) for i,name in enumerate(fitter.model_output_name[model]
+            )
+        ])
+    
+    children = html.Div([
+        dbc.Table([table_header, table_body], bordered=True), 
+        html.P("The above parameters table is copy-pastable in Excel")
+    ])
     
     #plot
     data = [go.Scatter(**plot) for plot in graph_data]
@@ -156,6 +191,45 @@ def optimize(btn, contents, filename, fit_type, model):
     
     return fig, children
 
+
+@app.callback(
+    Output("download-results", "data"),
+    Input("download-results-btn", "n_clicks"),
+    State("dropdown-out-format-selector", "value"),
+    State("result-data", "children"),
+    prevent_initial_call=True,
+)
+def download_results(n_clicks, fmt, fit_res_table):
+    #reparse res_table
+    #this is awkward because the table object deeply nested...
+    the_table = fit_res_table['props']['children'][0]
+    column_header = [
+        x['props']['children'] for x in the_table['props']['children'][0]['props']['children']['props']['children']
+    ]
+    model_str = column_header[0].split()[0]
+    func = fitter.get_WRC_function(ABBREV_TO_MODEL[model_str])
+    #note: parameter are writted sequentially in the table, so if we pass value to the function in the order we are fine!
+    fit_params = []
+    for nested_dict in the_table['props']['children'][1]['props']['children']:
+        params = []
+        for i in range(1,len(nested_dict['props']['children'])):
+            params.append(float(nested_dict['props']['children'][i]['props']['children']))
+        fit_params.append(params)
+    fit_params = [[x[i] for x in fit_params] for i in range(len(fit_params[0]))]
+    #plot function
+    x_th = np.logspace(-2,6, 1000)
+    y_th = [func(x_th, params) for params in fit_params]
+    df = pd.DataFrame(
+        {'Pressure': x_th, **{column_header[i+1]:y_th[i] for i in range(len(fit_params))}}
+    )
+    #send!
+    output = io.BytesIO()
+    if fmt == "CSV (.csv)":
+        df.to_csv(output, index=False)
+    elif fmt == "Excel (.xlsx)":
+        df.to_excel(output, index=False)
+    data = output.getvalue()
+    return dcc.send_bytes(data, "calibrated_WRC."+fmt.split('.')[1].split(')')[0])
 
 if __name__ == "__main__":
     app.run_server(debug=True)

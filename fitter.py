@@ -7,9 +7,9 @@ from scipy.interpolate import CubicSpline
 ###
 
 model_output_name = {
-    "Van Genuchten": ["Saturation WC", "alpha VG", "n VG", "Residual WC"],
-    "Brooks and Corey": ["Saturation WC", "Air Entry Value", "Lambda BC", "Residual WC"],
-    "Fredlund and Xing": ["Saturation WC", "alpha FX", "n FX", "m FX"],
+    "Van Genuchten (1980)": ["Saturation WC", "alpha VG", "n VG", "Residual WC"],
+    "Brooks and Corey (1964)": ["Saturation WC", "Air Entry Value", "Lambda BC", "Residual WC"],
+    "Fredlund and Xing (1994)": ["Saturation WC", "alpha FX", "n FX", "m FX"],
 }
   
 def VanGenuchten(psi, tets, a, n, tetr):
@@ -92,11 +92,20 @@ def quantile_loss(x, model, xdata, ydata, quantile):
 ###
 # Main fit function
 ###
-def fit(xdata, ydata, model="Van Genuchten", quantile=None):
-    tol = 0.3
-    if model == "Van Genuchten":
+
+def get_WRC_function(model="Van Genuchten (1980)"):
+    if model == "Van Genuchten (1980)":
         func_l = lambda x,params: VanGenuchten(x, *params)
-        func = VanGenuchten
+    elif model == "Brooks and Corey (1964)":
+        func_l = lambda x,params: BrooksCorey(x, *params)
+    elif model == "Fredlund and Xing (1994)":
+        func_l = lambda x,params: FredlundXing(x, *params)
+    return func_l
+
+def fit(xdata, ydata, model, quantile=None):
+    tol = 0.3
+    if model == "Van Genuchten (1980)":
+        func_l = lambda x,params: VanGenuchten(x, *params)
         tets, a, n, tetr, abounds = VanGenuchten_initial_parameters(xdata, ydata)
         x0 = [tets,a,n,tetr]
         bounds=[
@@ -105,9 +114,8 @@ def fit(xdata, ydata, model="Van Genuchten", quantile=None):
             (1,50),
             (tetr*(1-tol),min((1+tol)*tetr,1))
         ]
-    elif model == "Brooks and Corey":
+    elif model == "Brooks and Corey (1964)":
         func_l = lambda x,params: BrooksCorey(x, *params)
-        func = BrooksCorey
         tets, psi_d, l, tetr = BrooksCorey_initial_parameters(xdata, ydata)
         x0 = [tets, psi_d, l, tetr]
         bounds = [
@@ -116,10 +124,8 @@ def fit(xdata, ydata, model="Van Genuchten", quantile=None):
             (-10,0),
             (tetr*(1-tol),min((1+tol)*tetr,1)), #tetr
         ]
-        print(bounds, x0)
-    elif model == "Fredlund and Xing":
+    elif model == "Fredlund and Xing (1994)":
         func_l = lambda x,params: FredlundXing(x, *params)
-        func = FredlundXing
         tets, a, n, m = FredlundXing_initial_parameters(xdata, ydata)
         x0 = [tets, a, n, m]
         bounds = [

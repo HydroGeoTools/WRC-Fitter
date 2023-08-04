@@ -66,7 +66,7 @@ class WRCFitterUI:
         ]
         model = [
             html.H6("Select model: ", id="model-text"),
-            dbc.RadioItems(["Brooks and Corey", "Fredlund and Xing", "Van Genuchten"], "Van Genuchten", id="radio-model-selector"),
+            dbc.RadioItems(["Brooks and Corey (1964)", "Fredlund and Xing (1994)", "Van Genuchten (1980)"], "Van Genuchten (1980)", id="radio-model-selector"),
             html.Hr(),
         ]
         opt_button = [dbc.Button('Optimize', id='optimize_button', n_clicks=0)]
@@ -86,20 +86,24 @@ class WRCFitterUI:
             html.H3("Results"),
         ]
         params = [
-            html.H6("Calibrated model parameters", id="out-params-text"),
+            html.H6("Calibrated model parameters:", id="out-params-text"),
             html.Div(["Please optimize to view the fitted parameters."], id='result-data'),
         ]
         download = [
             html.H6("Download results in output format:", id="out-results-format-text"),
-            dcc.Dropdown(["Excel (.xlsx)", "CSV (.csv)", "HydroGeoSphere (.mprops)"], "Excel (.xlsx)", id="dropdown-out-format-selector"),
+            dcc.Dropdown([
+                "Excel (.xlsx)",
+                "CSV (.csv)",
+                "HydroGeoSphere (.mprops)"
+            ], "CSV (.csv)", id="dropdown-out-format-selector"),
             dbc.Button('Download', id='download-results-btn', n_clicks=0),
             dcc.Download(id="download-results"),
         ]
         results_card = dbc.Card(
             dbc.CardBody(
-                header + 
-                params +
-                download
+                header
+                + params
+                + download
             )
         )
         return results_card
