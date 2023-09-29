@@ -5,7 +5,12 @@ import dash_bootstrap_components as dbc
 class WRCFitterUI:
     def __init__(self):
         self.layout = html.Div([
-            dbc.Row([html.H1("WRC-Fitter")], style={'textAlign':'center'}),
+            dbc.Row([
+                dbc.Col([html.H1("WRC-Fitter", style={'textAlign':'center'})]),
+                dbc.Col([
+                    dbc.Button("Get help!", href="https://docs.hydrogeotools.com/wrc-fitter.html"),
+                ], width="auto"),
+            ], justify="end", align="center"),
             html.Hr(),
             dbc.Row([
                 dbc.Col(self._visualization_pannel(), width=8),
@@ -43,7 +48,9 @@ class WRCFitterUI:
         ]
         graph = [
             html.H6("Visualize your data:", id="data-vis-text"),
-            dcc.Graph(id='graph-content')
+            dcc.Graph(id='graph-content'),
+            dbc.Button('Download a sample curve', id='button-sample-wrc', n_clicks=0),
+            dcc.Download(id="download-sample-curve"),
         ]
         visualization_card = dbc.Card(
             dbc.CardBody(

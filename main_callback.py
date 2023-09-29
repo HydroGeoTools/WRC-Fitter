@@ -29,6 +29,15 @@ ABBREV_TO_MODEL = {
 }
 
 
+
+@app.callback(
+    Output("download-sample-curve", "data"),
+    Input("button-sample-wrc", "n_clicks"),
+    prevent_initial_call=True,
+)
+def download_sample_wrc(n_clicks):
+    return dcc.send_file("./examples/CRE-tempe.xlsx")
+
 def parse_contents(contents, filename):
     if contents is None: return
     content_type, content_string = contents.split(',')
