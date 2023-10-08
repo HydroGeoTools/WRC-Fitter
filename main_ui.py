@@ -2,9 +2,22 @@ from dash import Dash, html, dcc
 import dash_bootstrap_components as dbc
 
 
+FOOTER_STYLE = {
+    "position": "fixed",
+    "bottom": 0,
+    "left": 0,
+    "right": 0,
+    "height": 50,
+    "padding": "1rem 1rem",
+    "background-color": "white",
+}
+
+
+
 class WRCFitterUI:
     def __init__(self):
         self.layout = html.Div([
+            self._header(),
             dbc.Row([
                 dbc.Col([html.H1("WRC-Fitter", style={'textAlign':'center'})]),
                 dbc.Col([
@@ -18,9 +31,17 @@ class WRCFitterUI:
                     dbc.Row(self._calibration_pannel()),
                     dbc.Row(self._results_pannel())
                 ]),
-            ])
+            ]),
+            self._footer(),
         ])
         return
+    
+    def _header(self):
+        contents = dbc.Alert([
+            "This is the beta version of WRC-Fitter application. Let us know what you think at ",
+            html.A("contact@hydrogeotools.com", href="mailto:contact@hydrogeotools.com"),
+        ])
+        return contents
     
     def _visualization_pannel(self):
         header = [
@@ -114,6 +135,15 @@ class WRCFitterUI:
             )
         )
         return results_card
+    
+    def _footer(self):
+        contents = [ html.P([
+            "Application created by HydroGeoTools. See ", 
+            html.A("www.hydrogeotools.com", href="https://www.hydrogeotools.com"),
+            " for more contents.",
+        ]) ]
+        footer = html.Footer(contents, style=FOOTER_STYLE)
+        return footer
     
     def packLayout(self):
         return dbc.Container(self.layout, fluid=True)
